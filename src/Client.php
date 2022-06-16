@@ -28,17 +28,22 @@ class Client implements ClientContract
         $listener = config('config_center.drivers.nacos.listener_config', []);
 
         $config = [];
-        foreach ($listener as $key => $item) {
-            $dataId = $item['data_id'];
-            $group = $item['group'];
-            $tenant = $item['tenant'] ?? null;
-            $type = $item['type'] ?? null;
-            $response = $this->client->config->get($dataId, $group, $tenant);
-            if ($response->getStatusCode() !== 200) {
-                app(StdoutLogger::class)->error(sprintf('The config of %s read failed from Nacos.', $key));
-                continue;
+        try {
+            foreach ($listener as $key => $item) {
+                $dataId = $item['data_id'];
+                $group = $item['group'];
+                $tenant = $item['tenant'] ?? null;
+                $type = $item['type'] ?? null;
+                $response = $this->client->config->get($dataId, $group, $tenant);
+                if ($response->getStatusCode() !== 200) {
+                    app(StdoutLogger::class)->error(sprintf('The config of %s read failed from Nacos.', $key));
+                    continue;
+                }
+                $config[$key] = $this->decode((string)$response->getBody(), $type);
             }
-            $config[$key] = $this->decode((string)$response->getBody(), $type);
+        } catch (\Throwable $e) {
+            $message = "[{$e->getCode()}]{$e->getMessage()}[{$e->getFile()}:{$e->getLine()}]";
+            app(StdoutLogger::class)->error($message);
         }
 
         return $config;
@@ -55,7 +60,17 @@ class Client implements ClientContract
                     $type = $item['type'] ?? null;
                     $contentMD5 = $item['contentMD5'] ?? null;
                     $tenant = $item['tenant'] ?? null;
-                    $response = $this->client->config->listener($dataId, $group, $contentMD5, $tenant);
+
+                    try {
+                        $response = $this->client->config->listener($dataId, $group, $contentMD5, $tenant);
+                    } catch (\Throwable $e) {
+                        $message = "[{$e->getCode()}]{$e->getMessage()}[{$e->getFile()}:{$e->getLine()}]";
+                        app(StdoutLogger::class)->error($message);
+
+                        sleep(3);
+                        continue;
+                    }
+
                     $responseBody = (string)$response->getBody();
                     if (($statusCode = $response->getStatusCode()) !== 200) {
                         $this->logger->error(
