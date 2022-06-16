@@ -1,0 +1,44 @@
+{
+  "name": "peibin/laravel-config-nacos",
+  "description": "Peibin nacos config adapter component for Laravel.",
+  "license": "MIT",
+  "keywords": [
+    "php",
+    "laravel",
+    "nacos"
+  ],
+  "authors": [
+    {
+      "name": "Peibin Zhu",
+      "email": "zhupeibin1207@gmail.com"
+    }
+  ],
+  "require": {
+    "php": ">=8.0",
+    "peibin/laravel-config-center": "^1.0",
+    "peibin/laravel-nacos": "^1.0",
+    "peibin/laravel-process": "^1.0",
+    "peibin/laravel-utils": "^1.2"
+  },
+  "autoload": {
+    "psr-4": {
+      "PeibinLaravel\\ConfigNacos\\": "src/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "PeibinLaravelTest\\ConfigNacos\\": "tests/"
+    }
+  },
+  "extra": {
+    "laravel": {
+      "providers": [
+        "PeibinLaravel\\ConfigNacos\\ConfigNacosServiceProvider"
+      ]
+    }
+  },
+  "config": {
+    "sort-packages": true
+  },
+  "prefer-stable": true
+}
