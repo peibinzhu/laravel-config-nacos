@@ -4,16 +4,18 @@ declare(strict_types=1);
 
 namespace PeibinLaravel\ConfigNacos;
 
+use Illuminate\Contracts\Config\Repository;
+use Illuminate\Contracts\Container\Container;
 use PeibinLaravel\Nacos\Application;
 use PeibinLaravel\Nacos\Config as NacosConfig;
 
 class NacosClientFactory
 {
-    public function __invoke()
+    public function __invoke(Container $container)
     {
-        $config = config('config_center.drivers.nacos.client', []);
+        $config = $container->get(Repository::class)->get('config_center.drivers.nacos.client', []);
         if (empty($config)) {
-            return app(Application::class);
+            return $container->get(Application::class);
         }
 
         if (!empty($config['uri'])) {

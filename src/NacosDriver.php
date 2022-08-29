@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace PeibinLaravel\ConfigNacos;
 
+use Illuminate\Contracts\Container\Container;
 use Illuminate\Support\Arr;
 use PeibinLaravel\ConfigCenter\AbstractDriver;
 use PeibinLaravel\ConfigCenter\Contracts\Client;
@@ -15,10 +16,10 @@ class NacosDriver extends AbstractDriver
 {
     protected string $driverName = 'nacos';
 
-    public function __construct()
+    public function __construct(protected Container $container)
     {
-        parent::__construct();
-        $this->client = app(Client::class);
+        parent::__construct($container);
+        $this->client = $container->get(Client::class);
     }
 
     public function createMessageFetcherLoop(): void
@@ -53,15 +54,15 @@ class NacosDriver extends AbstractDriver
 
     protected function updateConfig(array $config)
     {
-        $root = config('config_center.drivers.nacos.default_key');
-        $mergeMode = config('config_center.drivers.nacos.merge_mode');
+        $root = $this->config->get('config_center.drivers.nacos.default_key');
+        $mergeMode = $this->config->get('config_center.drivers.nacos.merge_mode');
         foreach ($config ?? [] as $key => $conf) {
             if (is_int($key)) {
                 $key = $root;
             }
 
             if (is_array($conf) && $mergeMode === Constants::CONFIG_MERGE_APPEND) {
-                $conf = static::merge(config($key, []), $conf);
+                $conf = static::merge($this->config->get($key, []), $conf);
             }
 
             $this->config->set($key, $conf);

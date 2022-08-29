@@ -4,28 +4,31 @@ declare(strict_types=1);
 
 namespace PeibinLaravel\ConfigNacos;
 
+use Illuminate\Contracts\Config\Repository;
+use Illuminate\Contracts\Container\Container;
 use PeibinLaravel\ConfigNacos\Contracts\Client as ClientContract;
+use PeibinLaravel\Contracts\StdoutLoggerInterface;
 use PeibinLaravel\Nacos\Application;
 use PeibinLaravel\Utils\Codec\Json;
 use PeibinLaravel\Utils\Codec\Xml;
-use PeibinLaravel\Utils\Contracts\StdoutLogger;
 use Swoole\Coroutine;
 
 class Client implements ClientContract
 {
     protected Application $client;
 
-    protected StdoutLogger $logger;
+    protected StdoutLoggerInterface $logger;
 
-    public function __construct()
+    public function __construct(protected Container $container)
     {
-        $this->client = app(NacosClient::class);
-        $this->logger = app(StdoutLogger::class);
+        $this->config = $container->get(Repository::class);
+        $this->client = $container->get(NacosClient::class);
+        $this->logger = $container->get(StdoutLoggerInterface::class);
     }
 
     public function pull(): array
     {
-        $listener = config('config_center.drivers.nacos.listener_config', []);
+        $listener = $this->config->get('config_center.drivers.nacos.listener_config', []);
 
         $config = [];
         try {
@@ -36,14 +39,14 @@ class Client implements ClientContract
                 $type = $item['type'] ?? null;
                 $response = $this->client->config->get($dataId, $group, $tenant);
                 if ($response->getStatusCode() !== 200) {
-                    app(StdoutLogger::class)->error(sprintf('The config of %s read failed from Nacos.', $key));
+                    $this->logger->error(sprintf('The config of %s read failed from Nacos.', $key));
                     continue;
                 }
                 $config[$key] = $this->decode((string)$response->getBody(), $type);
             }
         } catch (\Throwable $e) {
             $message = "[{$e->getCode()}]{$e->getMessage()}[{$e->getFile()}:{$e->getLine()}]";
-            app(StdoutLogger::class)->error($message);
+            $this->logger->error($message);
         }
 
         return $config;
@@ -51,7 +54,7 @@ class Client implements ClientContract
 
     public function longPull(callable $callback): void
     {
-        $listener = config('config_center.drivers.nacos.listener_config', []);
+        $listener = $this->config->get('config_center.drivers.nacos.listener_config', []);
         foreach ($listener as $key => $item) {
             Coroutine::create(function () use ($key, $item, $callback) {
                 while (true) {
@@ -65,7 +68,7 @@ class Client implements ClientContract
                         $response = $this->client->config->listener($dataId, $group, $contentMD5, $tenant);
                     } catch (\Throwable $e) {
                         $message = "[{$e->getCode()}]{$e->getMessage()}[{$e->getFile()}:{$e->getLine()}]";
-                        app(StdoutLogger::class)->error($message);
+                        $this->logger->error($message);
 
                         sleep(3);
                         continue;
@@ -98,7 +101,7 @@ class Client implements ClientContract
 
                         $content = (string)$response->getBody();
                         $item['contentMD5'] = md5($content);
-                        config(['config_center.drivers.nacos.listener_config.' . $key => $item]);
+                        $this->config->set(['config_center.drivers.nacos.listener_config.' . $key => $item]);
                         $config = $this->decode((string)$response->getBody(), $type);
                         $callback([$key => $config]);
                     }
