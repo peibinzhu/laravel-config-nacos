@@ -15,6 +15,8 @@ use Swoole\Coroutine;
 
 class Client implements ClientContract
 {
+    protected Repository $config;
+
     protected Application $client;
 
     protected StdoutLoggerInterface $logger;
@@ -115,7 +117,7 @@ class Client implements ClientContract
      * @param string|null $type
      * @return array|string
      */
-    public function decode(string $body, ?string $type = null): array | string
+    public function decode(string $body, ?string $type = null): array|string
     {
         $type = strtolower((string)$type);
         return match ($type) {

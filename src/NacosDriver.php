@@ -8,8 +8,8 @@ use Illuminate\Contracts\Container\Container;
 use Illuminate\Support\Arr;
 use PeibinLaravel\ConfigCenter\AbstractDriver;
 use PeibinLaravel\ConfigCenter\Contracts\Client;
-use PeibinLaravel\Process\Utils\Constants as WorkerConstants;
-use PeibinLaravel\Process\Utils\CoordinatorManager;
+use PeibinLaravel\Coordinator\Constants as WorkerConstants;
+use PeibinLaravel\Coordinator\CoordinatorManager;
 use Swoole\Coroutine;
 
 class NacosDriver extends AbstractDriver
@@ -48,7 +48,7 @@ class NacosDriver extends AbstractDriver
                         $prevConfig = $config;
                     }
                 }
-            }, $interval, fn () => false);
+            }, $interval, fn() => false);
         });
     }
 
