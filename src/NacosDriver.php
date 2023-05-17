@@ -7,10 +7,8 @@ namespace PeibinLaravel\ConfigNacos;
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Support\Arr;
 use PeibinLaravel\ConfigCenter\AbstractDriver;
-use PeibinLaravel\ConfigCenter\Contracts\Client;
-use PeibinLaravel\Coordinator\Constants as WorkerConstants;
-use PeibinLaravel\Coordinator\CoordinatorManager;
-use Swoole\Coroutine;
+use PeibinLaravel\ConfigCenter\Events\ConfigUpdated;
+use PeibinLaravel\ConfigNacos\Contracts\ClientInterface;
 
 class NacosDriver extends AbstractDriver
 {
@@ -19,37 +17,21 @@ class NacosDriver extends AbstractDriver
     public function __construct(protected Container $container)
     {
         parent::__construct($container);
-        $this->client = $container->get(Client::class);
+        $this->client = $container->get(ClientInterface::class);
     }
 
     public function createMessageFetcherLoop(): void
     {
-        Coroutine::create(function () {
-            $interval = $this->getInterval();
-            $useLongPull = method_exists($this->client, 'longPull');
-            retry(INF, function () use ($interval, $useLongPull) {
-                $prevConfig = [];
-                if ($useLongPull) {
-                    $this->client->longPull(function ($config) {
-                        $this->syncConfig($config);
-                    });
-                } else {
-                    while (true) {
-                        $coordinator = CoordinatorManager::until(WorkerConstants::WORKER_EXIT);
-                        $workerExited = $coordinator->yield($interval);
-                        if ($workerExited) {
-                            break;
-                        }
+        if (!method_exists($this->client, 'longPull')) {
+            parent::createMessageFetcherLoop();
+            return;
+        }
 
-                        $config = $this->pull();
-                        if ($config !== $prevConfig) {
-                            $this->syncConfig($config);
-                        }
-                        $prevConfig = $config;
-                    }
-                }
-            }, $interval, fn() => false);
-        });
+        retry(INF, function () {
+            $this->client->longPull(function ($config) {
+                $this->syncConfig($config);
+            });
+        }, 1);
     }
 
     protected function updateConfig(array $config)
@@ -65,8 +47,9 @@ class NacosDriver extends AbstractDriver
                 $conf = static::merge($this->config->get($key, []), $conf);
             }
 
+            $prevConf = $this->config->get($key);
             $this->config->set($key, $conf);
-            $this->dispatchEvent($key, $conf);
+            $this->event(new ConfigUpdated($key, $conf, $prevConf));
             $this->logger->debug(sprintf('Config [%s] is updated.', $key));
         }
     }
